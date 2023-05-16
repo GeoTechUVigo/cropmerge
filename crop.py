@@ -49,7 +49,7 @@ def in_cube(coordinates, centre, cube_size, n_points=np.isnan, seed=np.random.ra
     if np.isnan(n_points): 
         return idx_in_cube
 
-    elif len(coordinates) >= n_points:
+    elif len(idx_in_cube) >= n_points:
         choice = np_RandomState.choice(len(idx_in_cube), n_points, replace=False)
     else:
         choice = np_RandomState.choice(len(idx_in_cube), n_points, replace=True)
