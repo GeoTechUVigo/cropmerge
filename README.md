@@ -14,3 +14,5 @@ This program is free software: you can redistribute it and/or modify it under th
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program in ![COPYING](https://github.com/GeoTechUVigo/cropmerge/blob/main/COPYING). If not, see <https://www.gnu.org/licenses/>.
+
+#TODO: cambiar n_points de nan a None e comprobar que unique_idnex e np.array
