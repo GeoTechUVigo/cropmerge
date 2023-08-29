@@ -15,16 +15,18 @@ with the program in COPYING. If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 from ismember import ismember
+import numbers
 
 
-def in_cube(coordinates, centre, cube_size, n_points=np.isnan, seed=np.random.randint(0,100)):
+def in_cube(coordinates, centre, cube_size, n_points=None, idx_keep=None, seed=np.random.randint(0,100)):
     """
     Function that returns an array with a len equal to self.npoints with the index corresponding to points in
     a cube of self.cube_size long centred in centre. The cube extends in Z dimension.
 
-    :param coordinates: numpy array with the coorindates xyz.
-    :param centre: xyz coordinates of the centre of the cube.
+    :param coordinates: numpy array with the coorindates.
+    :param centre: coordinates of the centre of the cube.
     :param n_points: number of points selected. If np.nan it returns all. [Default: np.nan]
+    :param idx_keep: list of indexes of coordinates that must be always selected. [Default: None]
     :param seed: seed for random processes. [Default: np.random.randint(0,100)]
     :returns:
         - idx_in_cube: array with npoints indexes corresponding to points in the cube (replace if there are less than n_points).
@@ -32,23 +34,30 @@ def in_cube(coordinates, centre, cube_size, n_points=np.isnan, seed=np.random.ra
 
     np_RandomState = np.random.RandomState(seed)
     
-    # Get boundaries of the cube. 
-    min_coords = centre-[cube_size/2, cube_size/2, cube_size/2]
-    max_coords = centre+[cube_size/2, cube_size/2, cube_size/2]
+    if isinstance(cube_size, numbers.Number): cube_size = [cube_size, cube_size, cube_size]
 
-    # To make sure that it is not leaving data on the Z axis.
-    # Modify those values to the limit of the cloud
-    min_coords[2] = np.min(coordinates,axis=0)[2]
-    max_coords[2] = np.max(coordinates,axis=0)[2]
+    # Get boundaries of the cube. 
+    min_coords = centre-[cube_size[0]/2, cube_size[1]/2, cube_size[2]/2]
+    max_coords = centre+[cube_size[0]/2, cube_size[1]/2, cube_size[2]/2]
 
     # Take points that are inside of the cube.
-    idx_in_cube = np.sum((coordinates>=min_coords)*(coordinates<=max_coords),axis=1)==3
+    idx_in_cube = np.sum((coordinates>=min_coords)*(coordinates<=max_coords),axis=1)==coordinates.shape[1]
     idx_in_cube = np.where(idx_in_cube)[0]
 
     # From those points, pick self.npoints randomly.
-    if np.isnan(n_points): 
+    if n_points is None: 
         return idx_in_cube
 
+    # keep indexes
+    if not idx_keep is None:
+        keep_bool = np.isin(idx_in_cube, idx_keep)
+        keep = idx_in_cube[keep_bool]
+        idx_in_cube = idx_in_cube[~keep_bool]
+        n_points -= len(keep)
+
+    if len(idx_in_cube) == 0:
+        return idx_in_cube
+    
     elif len(idx_in_cube) >= n_points:
         choice = np_RandomState.choice(len(idx_in_cube), n_points, replace=False)
     else:
@@ -56,10 +65,14 @@ def in_cube(coordinates, centre, cube_size, n_points=np.isnan, seed=np.random.ra
 
     idx_in_cube = idx_in_cube[choice]
 
+    # keep indexes
+    if not idx_keep is None:
+        idx_in_cube = np.concatenate((idx_in_cube, keep))
+
     return idx_in_cube
 
 
-def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True, seed=np.random.randint(0,100)):
+def crop(coordinates, cube_size, n_points=None, overlap=0, return_coords=True, repeat_points: bool=True, idx_keep=None, seed=np.random.randint(0,100)):
     '''
     Function to calculated the indexes of the cubes through the coordinates. The point cloud is divied in cubes.
     The cubes has a minimum overlap equal to self.overlap between them. The point cloud is divided first in X and then in Y dimension.
@@ -72,6 +85,8 @@ def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True,
     :param cube_size: int size of the cube.
     :param n_points: int number of points in each cube. If np.nan it returns the indexes of all the points in each cube. [Default: np.nan]
     :param overlap: double minimum overlap between cubes. [Default: 0]
+    :param repeat_points: if True, the selected points in the overlapping zones are the same between cubes. [Default: True]
+    :param idx_keep: list of indexes of coordinates that must be always selected in their cube. Only used if n_points=None or overlap=0 or repeat_points=False. [Default: None]
     :param seed: int seed for random processes. [Default: np.random.randint(0,100)]
     :returns:
         - unique_index: array with the indexes of the point present in any cube referred to the input coordinates array.
@@ -82,47 +97,73 @@ def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True,
 
     # Calculate the number of cubes and their centre
     # n * c = L + S_u (n-1) -> n = ceil((L - S_u_min) / (c - S_u_min)) ; S_u = (n * C - L) / (n - 1)
-    centres = np.array([]).reshape(-1,3)
     
     # Calculate the centre coordinates of each cube.
+    if isinstance(cube_size, numbers.Number): cube_size = [cube_size, cube_size, cube_size]
 
     # split in X
     max_loc = coordinates[:,0].max()
     min_loc = coordinates[:,0].min()
     l = max_loc - min_loc # length in X
-    n = np.ceil((l - overlap) / (cube_size - overlap)) # number of cubes
-    overlap = (n * cube_size - l) / (n - 1) if n > 1 else 0 # recalculate overlap
-    centres_x = min_loc + cube_size/2 + np.arange(n) * (cube_size - overlap) # X locations of the centres
+    n = np.ceil((l - overlap) / (cube_size[0] - overlap)) # number of cubes
+    overlap_rec = (n * cube_size[0] - l) / (n - 1) if n > 1 else 0 # recalculate overlap
+    centres_x = min_loc + cube_size[0]/2 + np.arange(n) * (cube_size[0] - overlap_rec) # X locations of the centres
 
     # split in Y
+    centres_xy = np.array([]).reshape(-1,3)
     for centre_x in centres_x:
         # Points between this X positions
-        this_coordinates = np.logical_and(coordinates[:,0] >= (centre_x - cube_size/2), coordinates[:,0] <= (centre_x + cube_size/2))
+        this_coordinates = np.logical_and(coordinates[:,0] >= (centre_x - cube_size[0]/2), coordinates[:,0] <= (centre_x + cube_size[0]/2))
         
         # Calculate The number of cubes and their centres.
         max_loc = coordinates[this_coordinates,1].max()
         min_loc = coordinates[this_coordinates,1].min()
         l = max_loc - min_loc
-        n = np.ceil((l - overlap) / (cube_size - overlap)).astype('int')
-        overlap = (n * cube_size - l) / (n - 1) if n > 1 else 0
+        n = np.ceil((l - overlap) / (cube_size[1] - overlap)).astype('int')
+        overlap_rec = (n * cube_size[1] - l) / (n - 1) if n > 1 else 0
 
         centres_y = np.zeros((n,3))
-        centres_y[:,0] = centre_x # X centre is the same for all. Z does not care because the cube is expanded in Z.
-        centres_y[:,1] = min_loc + cube_size/2 + np.arange(n) * (cube_size - overlap) # Y centres
+        centres_y[:,0] = centre_x # X centre is the same for all
+        centres_y[:,1] = min_loc + cube_size[1]/2 + np.arange(n) * (cube_size[1] - overlap_rec) # Y centres
 
         # Append these centres with the others
-        centres = np.append(centres, centres_y, axis=0)
+        centres_xy = np.append(centres_xy, centres_y, axis=0)
+    
+    # split in Z
+    centres = np.array([]).reshape(-1,3)
+    for centre_xy in centres_xy:
+        # Points between this X and Y positions
+        this_coordinates = np.logical_and(np.logical_and(coordinates[:,0] >= (centre_xy[0] - cube_size[0]/2), coordinates[:,0] <= (centre_xy[0] + cube_size[0]/2)),
+                                          np.logical_and(coordinates[:,1] >= (centre_xy[1] - cube_size[1]/2), coordinates[:,1] <= (centre_xy[1] + cube_size[1]/2)))
         
+        # Calculate The number of cubes and their centres.
+        max_loc = coordinates[this_coordinates,2].max()
+        min_loc = coordinates[this_coordinates,2].min()
+        l = max_loc - min_loc
+        n = np.ceil((l - overlap) / (cube_size[2] - overlap)).astype('int')
+        overlap_rec = (n * cube_size[2] - l) / (n - 1) if n > 1 else 0
+
+        centres_z = np.zeros((n,3))
+        centres_z[:,0] = centre_xy[0] # X centre is the same for all
+        centres_z[:,1] = centre_xy[1] # Y centre is the same for all
+        centres_z[:,2] = min_loc + cube_size[2]/2 + np.arange(n) * (cube_size[2] - overlap_rec) # Z centres
+
+        # Append these centres with the others
+        centres = np.append(centres, centres_z, axis=0)
+
     #######################################################################################################################3
     # Calcualte the indexes of n_points of each cube.
-    # If the number of points is not specified, all points are returned.
-    if np.isnan(n_points):
-        indexes = np.zeros((len(centres)), dtype='object')
+    if n_points is None or overlap == 0 or repeat_points == False:
+        if n_points is None:
+            indexes = np.zeros((len(centres)), dtype='object')
+        else:
+            indexes = np.zeros((len(centres), n_points), dtype='int')
+
         no_empty= np.zeros((len(centres)), dtype='bool')
         for i in range(len(centres)):
+
             # indexes in this cube
-            
-            idx_in_cube = in_cube(coordinates, centres[i], cube_size, n_points=np.nan)
+            idx_in_cube = in_cube(coordinates, centres[i], cube_size, n_points=n_points, idx_keep=idx_keep)
 
             if ~np.any(idx_in_cube):
                 continue
@@ -131,12 +172,19 @@ def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True,
             indexes[i] = idx_in_cube
 
         indexes = indexes[no_empty]
-        unique_index = np.arange(0,len(coordinates))
+
+        if n_points is None:
+            unique_index = np.arange(0,len(coordinates))
+
+        else:
+            # Calculated the indexes in the input coordinates that are in any cube.
+            unique_index, indexes_inv = np.unique(indexes, return_inverse=True)
+            # Expressing the indexes of the points in each cube as indexes in the vector unique_index.
+            indexes = indexes_inv.reshape(indexes.shape)
 
         return unique_index, indexes
 
-    # If the number of points is specified.
-
+    # If the number of points is specified and there are overlap and repeat_points=True 
     #indexes of the points of each cube.
     indexes = np.zeros((len(centres), n_points), dtype='int')
     no_empty= np.zeros((len(centres)), dtype='bool')
@@ -145,11 +193,12 @@ def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True,
     this_cube = np.zeros(len(coordinates), dtype='bool')
     selected_points = np.zeros(len(coordinates), dtype='bool')
     analysed_points = np.zeros(len(coordinates), dtype='bool')
+
     for i in range(len(centres)):
 
         # indexes in this cube
         this_cube[:] = False
-        idx_in_cube = in_cube(coordinates, centres[i], cube_size, n_points=np.nan)
+        idx_in_cube = in_cube(coordinates, centres[i], cube_size, n_points=None)
         # If there are no point continue
         if ~np.any(idx_in_cube):
             continue
@@ -225,5 +274,3 @@ def crop(coordinates, cube_size, n_points=np.nan, overlap=0, return_coords=True,
     indexes = indexes_inv.reshape(indexes.shape)
 
     return unique_index, indexes
-
-
