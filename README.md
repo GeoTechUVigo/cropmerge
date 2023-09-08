@@ -1,5 +1,10 @@
 # cropmerge
-Library for cropping point clouds in blocks and merge them wtih their predicted labels after been segmented.
+Library for cropping point clouds in blocks and merge them with semantic and instance labels.
+
+## Overview
+
+
+## Citation
 
 
 ## Licence
@@ -15,4 +20,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU General Public License along with this program in ![COPYING](https://github.com/GeoTechUVigo/cropmerge/blob/main/COPYING). If not, see <https://www.gnu.org/licenses/>.
 
-#TODO: cambiar n_points de nan a None e comprobar que unique_idnex e np.array
+## Installation
+To install cropmerge (available in test.pypi):
+```
+python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.0
+```

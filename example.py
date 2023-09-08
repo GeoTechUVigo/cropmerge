@@ -14,8 +14,8 @@ with the program in COPYING. If not, see <https://www.gnu.org/licenses/>.
 '''
 
 
-from crop import crop
-from merge import merge
+import cropmerge
+#from src import cropmerge
 import numpy as np
 
 # Parameters cropmerge
@@ -26,32 +26,42 @@ seed = 1
 
 # Load point cloud with labels
 import laspy # it is not in requirements.txt
-las = laspy.read('BaileyTruss_000.las')
+las = laspy.read('data/BaileyTruss_000.las')
 coordinates = las.xyz
 sem_gt = las.classification
 inst_gt = las.user_data
 
+# one hot encoder
+nb_classes = sem_gt.max()+1
+targets = np.array([sem_gt]).reshape(-1)
+sem_prob_gt = np.eye(nb_classes)[targets]
+
 # crop
-unique_index, indexes = crop(coordinates=coordinates, cube_size=cube_size, n_points=n_points, overlap=overlap, seed=seed)
+unique_index, indexes = cropmerge.crop(coordinates=coordinates, cube_size=cube_size, n_points=n_points, overlap=overlap, seed=seed)
 
 # Downsampling data
 coordinates_ds = coordinates[unique_index]
-sem_gt_ds = sem_gt[unique_index]
+sem_prob_gt_ds = sem_prob_gt[unique_index]
 inst_gt_ds = inst_gt[unique_index]
 
-# Predicting labels (using ground truth)
+# Predicting labels for each crop (using ground truth)
 coordinates_cubes = coordinates_ds[indexes]
-sem_cubes = sem_gt_ds[indexes]
+sem_prob_cubes = sem_prob_gt_ds[indexes]
 inst_cubes = inst_gt_ds[indexes]
 
 # merge
-sem, inst = merge(sem_cubes, inst_cubes, indexes)
+sem_prob, inst = cropmerge.merge(sem_prob_cubes, inst_cubes, indexes)
 
 ###################################################################################################################################
 # Check predicted and merge results with the downsampled data
 
 # check result semantic
+sem = sem_prob.argmax(1)
+sem_gt_ds = sem_prob_gt_ds.argmax(1)
+sem_gt_ds_2 = sem_gt[unique_index]
 print(np.all(sem==sem_gt_ds))
+print(np.all(sem==sem_gt_ds_2))
+
 # check result instance
 idx_insts = np.unique(inst)
 check_inst = np.zeros(idx_insts.shape, dtype='bool')
