@@ -50,7 +50,7 @@ sem_prob_cubes = sem_prob_gt_ds[indexes]
 inst_cubes = inst_gt_ds[indexes]
 
 # merge
-sem_prob, inst = cropmerge.merge(sem_prob_cubes, inst_cubes, indexes)
+sem_prob, inst = cropmerge.merge(indexes, sem_cubes=sem_prob_cubes, inst_cubes=inst_cubes)
 
 ###################################################################################################################################
 # Check predicted and merge results with the downsampled data

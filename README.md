@@ -25,5 +25,5 @@ You should have received a copy of the GNU General Public License along with thi
 ## Installation
 To install cropmerge (available in test.pypi):
 ```
-python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.0
+python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.1
 ```

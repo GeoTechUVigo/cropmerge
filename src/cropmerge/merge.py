@@ -18,43 +18,46 @@ import numpy as np
 from ismember import ismember
 
 
-def merge(sem_cubes, inst_cubes, indexes):
+def merge(indexes, sem_cubes=None, inst_cubes=None):
     """
     Function to merge the semantic and the instance segmentation information of the cubes of the same point cloud.
     Instance j of cube J and instance i of cube I are merge if and only if the maximum IoU of instane j with all
     the instances of cube I is with the instance i, and vice versa. 
     Semantic probabilities are calculated by averaging.
 
-    :param sem_cubes: numpy array with the semantic segmentation probabilities of the cubes [nº cubes, nº points in each cube, nº classes]
-    :param inst_subes: numpy array with the instance segmentation labels of the cubes [nº cubes, nº points in each cube]
-    :param indexes: numpy array with the index of each point in the point cloud that belong to each cube [nº cubes, nº points in each cube]
+    :param indexes: numpy array with the index of each point in the point cloud that belong to each cube (nº cubes, nº points in each cube).   
+    :param sem_cubes: numpy array with the semantic segmentation probabilities of the cubes (nº cubes, nº points in each cube, nº classes). [Default: None]
+    :param inst_subes: numpy array with the instance segmentation labels of the cubes (nº cubes, nº points in each cube). [Default: None]
     :returns:
         - sem: semantic segmentation probabilities.
         - inst: instance segmentation labels.
     """
 
     # Initialise arrays
-    sem = np.zeros((indexes.max()+1, sem_cubes.shape[2]), dtype=sem_cubes.dtype)
-    inst = np.zeros(indexes.max()+1, dtype=inst_cubes.dtype)
-    count = np.zeros((indexes.max()+1,1), dtype=sem_cubes.dtype)
+    if not sem_cubes is None:
+        sem = np.zeros((indexes.max()+1, sem_cubes.shape[2]), dtype=sem_cubes.dtype)
+        count_sem = np.zeros((indexes.max()+1,1), dtype=np.int_)
+    else:
+        sem = None
+
+    if not inst_cubes is None:
+        inst = np.zeros(indexes.max()+1, dtype=inst_cubes.dtype)
+    else:
+        inst = None
 
     # Number of the last label. 0 is avoid because inst is intialised with 0s
     number = 1
-
-    # Array for saving the analased points
-    analysed = np.zeros(indexes.max()+1, dtype='bool')
-    # Boolean array to merge instace labels
-    indexes_to_merge = np.zeros(inst.shape, dtype='bool')
     
-
     # Going through all the cubes
     for i in range(len(indexes)):
 
         # Semantic labels
-        sem[indexes[i]] = sem[indexes[i]] + sem_cubes[i]
-        count[indexes[i]] = count[indexes[i]] + 1
+        if not sem_cubes is None:
+            sem[indexes[i]] = sem[indexes[i]] + sem_cubes[i]
+            count_sem[indexes[i]] = count_sem[indexes[i]] + 1
     
         # Instance labels
+        if inst_cubes is None: continue
         # Instance labels of cube i
         labels_i = np.unique(inst_cubes[i])
 
@@ -107,6 +110,6 @@ def merge(sem_cubes, inst_cubes, indexes):
     _, inst = np.unique(inst, return_inverse=True)
 
     # Normalise semantic probabilities
-    sem = sem / count
+    sem = sem / count_sem
 
     return sem, inst
