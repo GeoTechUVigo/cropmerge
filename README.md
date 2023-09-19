@@ -10,7 +10,7 @@ For merging instance labels the are not merged point by point, bt instance by in
 
 
 ## Licence
-Automated instance and semantic segmentation of point clouds of large metallic truss bridges with modelling purposes.
+cropmerge
 
 Copyright (C) 2023 GeoTECH Group <geotech@uvigo.gal>
 
