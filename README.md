@@ -27,3 +27,6 @@ To install cropmerge (available in test.pypi):
 ```
 python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.1
 ```
+
+#TODO: borrar comentario en merge que fala da zona de solapamento.
+#TODO: facer que merge funcione con bloques de número variable. Lendo a dimension co .shape non vai funcionar.
