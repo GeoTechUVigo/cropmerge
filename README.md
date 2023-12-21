@@ -30,3 +30,4 @@ python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge
 
 #TODO: borrar comentario en merge que fala da zona de solapamento.
 #TODO: facer que merge funcione con bloques de número variable. Lendo a dimension co .shape non vai funcionar.
+#TODO: facer que overlap sexa escollible en cada dimensión
