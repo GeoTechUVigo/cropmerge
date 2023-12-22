@@ -18,93 +18,99 @@ import numpy as np
 from ismember import ismember
 
 
-def merge(indexes, sem_cubes=None, inst_cubes=None):
+def merge(indexes, sem_blocks=None, inst_blocks=None, inst_type=np.int64):
     """
-    Function to merge the semantic and the instance segmentation information of the cubes of the same point cloud.
-    Instance j of cube J and instance i of cube I are merge if and only if the maximum IoU of instane j with all
-    the instances of cube I is with the instance i, and vice versa. 
+    Function to merge the semantic and the instance segmentation information of the blocks of the same point cloud.
+    Instance j of block J and instance i of block I are merge if and only if the maximum IoU of instane j with all
+    the instances of block I is with the instance i, and vice versa. 
     Semantic probabilities are calculated by averaging.
 
-    :param indexes: numpy array with the index of each point in the point cloud that belong to each cube (nº cubes, nº points in each cube).   
-    :param sem_cubes: numpy array with the semantic segmentation probabilities of the cubes (nº cubes, nº points in each cube, nº classes). [Default: None]
-    :param inst_subes: numpy array with the instance segmentation labels of the cubes (nº cubes, nº points in each cube). [Default: None]
+    :param indexes: numpy array with the index of each point in the point cloud that belong to each block (nº blocks, nº points in each block).   
+    :param sem_blocks: numpy array with the semantic segmentation probabilities of the blocks (nº blocks, nº points in each block, nº classes). [Default: None]
+    :param inst_subes: numpy array with the instance segmentation labels of the blocks (nº blocks, nº points in each block). [Default: None]
+    : param int_type: numpy.dtype for the output inst. [Default: numpy.int64]
     :returns:
         - sem: semantic segmentation probabilities.
         - inst: instance segmentation labels.
     """
 
     # Initialise arrays
-    if not sem_cubes is None:
-        sem = np.zeros((indexes.max()+1, sem_cubes.shape[2]), dtype=sem_cubes.dtype)
-        count_sem = np.zeros((indexes.max()+1,1), dtype=np.int_)
+    num_points = np.concatenate(indexes).max()+1
+    if not sem_blocks is None:
+        sem = np.zeros((num_points, sem_blocks[0].shape[-1]), dtype=sem_blocks[0].dtype)
+        count_sem = np.zeros((num_points,1), dtype=inst_type)
     else:
         sem = None
 
-    if not inst_cubes is None:
-        inst = np.zeros(indexes.max()+1, dtype=inst_cubes.dtype)
+    if not inst_blocks is None:
+        inst = np.zeros(num_points, dtype=np.int64)
     else:
         inst = None
 
     # Number of the last label. 0 is avoid because inst is intialised with 0s
-    number = 1
+    new_inst_number = 1
     
-    # Going through all the cubes
+    # Going through all the blocks
     for i in range(len(indexes)):
 
         # Semantic labels
-        if not sem_cubes is None:
-            sem[indexes[i]] = sem[indexes[i]] + sem_cubes[i]
+        if not sem_blocks is None:
+            sem[indexes[i]] = sem[indexes[i]] + sem_blocks[i]
             count_sem[indexes[i]] = count_sem[indexes[i]] + 1
     
         # Instance labels
-        if inst_cubes is None: continue
-        # Instance labels of cube i
-        labels_i = np.unique(inst_cubes[i])
+        if inst_blocks is None: continue
+        # Instance labels of block i
+        labels_i = np.unique(inst_blocks[i])
 
-        # Array to write the label in the other cube with more points in common
-        labels_i_merge = np.zeros(len(labels_i),dtype='object')
+        # Array to write the label in the other block with more points in common
+        labels_i_merge = np.zeros((len(labels_i)),dtype='object')
 
-        # Compare overlapping between this cube an the already analysed cubes
+        # Compare overlapping between this block an the already analysed blocks
         for j in range(i):
 
             if not np.any(ismember(indexes[i],indexes[j])[0]):
                 continue
 
-            # Going through all the instances in cube i and compare it with cube j
+            # Going through all the instances in block i and compare it with block j
             for k in range(len(labels_i)):
                 # Indexes of this instance in overlap area
-                indexes_k = indexes[i, inst_cubes[i] == labels_i[k]]
-                # label of this indexes in cube j and number of points for each one. The label in inst, since these points have already been analysed
-                instance, counts = np.unique(inst[indexes[j, ismember(indexes[j], indexes_k)[0]]], return_counts=True)
-                
+                indexes_k = indexes[i][inst_blocks[i] == labels_i[k]]
+                # label of this indexes in block j and number of points for each one. The label in inst, since these points have already been analysed
+                instance, counts = np.unique(inst[indexes[j][ismember(indexes[j], indexes_k)[0]]], return_counts=True)
+
                 if np.any(instance):
-                    # instance in cube j with more common points with instance k in cube i
+                    # instance in block j with more common points with instance k in block i
                     instance_j = instance[counts == counts.max()][0]
 
-                    # Check if vice versa is the same (compare the instance in cube j with cube i)
+                    # Check if vice versa is the same (compare the instance in block j with block i)
                     indexes_common = np.where(inst == instance_j)[0]
-                    instance, counts = np.unique(inst_cubes[i, ismember(indexes[i], indexes_common)[0]], return_counts=True)
+                    instance, counts = np.unique(inst_blocks[i][ismember(indexes[i], indexes_common)[0]], return_counts=True)
+
                     instance_i = instance[counts == counts.max()][0]
                     # If so, merge instances
                     if instance_i == labels_i[k]:
                         labels_i_merge[k] = np.append(labels_i_merge[k], instance_j)
-
             
         # Write label
         for j in range(len(labels_i)):
             
             # Indexes of this instance
-            this_indexes = indexes[i, inst_cubes[i] == labels_i[j]]
-            # Write the label of this indexes
-            inst[this_indexes] = number
+            this_indexes = indexes[i][inst_blocks[i] == labels_i[j]]
+
             # If there are indexes to merge
             if np.any(labels_i_merge[j] != 0):
                 # remove 0
                 labels_i_merge[j] = labels_i_merge[j][1:]
-                inst[ismember(inst,labels_i_merge[j])[0]] = number
+                number = labels_i_merge[j].min()
 
-            # Update label number
-            number += 1
+                inst[ismember(inst,labels_i_merge[j])[0]] = number
+            else:
+                number = new_inst_number
+                new_inst_number +=1
+
+            # Write the label of this indexes
+            inst[this_indexes] = number
 
     # Change indexes numbers from 0 to number of instances
     _, inst = np.unique(inst, return_inverse=True)

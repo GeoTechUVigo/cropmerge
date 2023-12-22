@@ -25,9 +25,5 @@ You should have received a copy of the GNU General Public License along with thi
 ## Installation
 To install cropmerge (available in test.pypi):
 ```
-python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.1
+python3 -m pip install --extra-index-url https://test.pypi.org/simple/ cropmerge==0.0.2
 ```
-
-#TODO: borrar comentario en merge que fala da zona de solapamento.
-#TODO: facer que merge funcione con bloques de número variable. Lendo a dimension co .shape non vai funcionar.
-#TODO: facer que overlap sexa escollible en cada dimensión
