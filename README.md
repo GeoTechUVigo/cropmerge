@@ -16,7 +16,17 @@ The merge method remaps the instance and semantic labels of each block using the
 ## Citation
 If you find our work useful in your research, please consider citing:
 ```
-TODO:INTRODUCIR PUBLICACION
+@inproceedings{lamas_cropmerge_2024,
+	address = {Vigo, Spain},
+	title = {CROPMERGE: a method for cropping and merging point clouds to facilitate semantic and instance segmentation.},
+	url = {https://3dgeoinfoeg-ice.webs.uvigo.es/proceedings},
+	abstract = {3D point cloud data is a commonly used data form. Numerous works have been conducted on semantic and instance segmentation of this data format. However, preparing a point cloud to meet the requirements of a segmentation model can be complicated. A typical requirement is to specify the maximum size or a fix number of points. Here, we introduce a methodology for cropping point clouds and merging them after the segmentation process. The method aims to maximise the points that are repeated between crops to use their labels to merge the instances and compute the average semantic probabilities.},
+	author = {Lamas, Daniel and Soilán, Mario and Riveiro, Belén},
+	booktitle = {31st International Workshop on Intelligent Computing in Engineering},
+	month = jul,
+	year = {2024},
+	pages = {637--646},
+}
 ```
 
 ## Licence
